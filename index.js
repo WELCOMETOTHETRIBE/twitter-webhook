@@ -1,9 +1,14 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const { TwitterApi } = require('twitter-api-v2');
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
+
+// Log tokens at startup (⚠️ Safe for local debugging — REMOVE in production)
+console.log("TWITTER_API_KEY:", process.env.TWITTER_API_KEY);
+console.log("TWITTER_API_SECRET:", process.env.TWITTER_API_SECRET);
+console.log("TWITTER_ACCESS_TOKEN:", process.env.TWITTER_ACCESS_TOKEN);
+console.log("TWITTER_ACCESS_TOKEN_SECRET:", process.env.TWITTER_ACCESS_TOKEN_SECRET);
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -13,19 +18,22 @@ const client = new TwitterApi({
 });
 
 app.post('/tweet', async (req, res) => {
-  try {
-    const tweetText = req.body.text;
-    if (!tweetText) return res.status(400).send('Missing tweet text');
+  const { text } = req.body;
 
-    const response = await client.v1.tweet(tweetText);
-    return res.status(200).json({ success: true, tweet_id: response.id_str });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).send('Failed to tweet');
+  try {
+    const response = await client.v2.tweet(text);
+    console.log("Tweet posted:", response.data);
+    res.status(200).send("Tweet sent");
+  } catch (error) {
+    console.error("❌ Failed to tweet");
+    console.error("Twitter API Error Code:", error.code);
+    console.error("Twitter API Message:", error?.data?.errors?.[0]?.message);
+    console.error("Full error:", error);
+    res.status(500).send("Failed to tweet");
   }
 });
 
-app.listen(process.env.PORT || 3000, () =>
-  console.log('Server running on port ' + (process.env.PORT || 3000))
-);
+app.listen(8080, () => {
+  console.log('🚀 Server running on port 8080');
+});
 
