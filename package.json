@@ -1,6 +1,7 @@
 {
   "name": "twitter-webhook",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -11,3 +12,4 @@
     "twitter-api-v2": "^1.15.0"
   }
 }
+
