@@ -1,11 +1,11 @@
-import 'dotenv/config'; // Loads .env (works even if you’re using Railway vars)
+// index.js
 import express from 'express';
 import { TwitterApi } from 'twitter-api-v2';
+import fetch from 'node-fetch';
 
 const app = express();
 app.use(express.json());
 
-// Twitter client using env vars (Railway or .env)
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
   appSecret: process.env.TWITTER_API_SECRET,
@@ -15,17 +15,34 @@ const client = new TwitterApi({
 
 const rwClient = client.readWrite;
 
-app.post('/tweet', async (req, res) => {
-  const { text } = req.body;
+app.get('/health', (_, res) => res.send('✅ Running'));
 
-  if (!text) {
-    return res.status(400).json({ error: 'Missing tweet text' });
-  }
+app.post('/tweet', async (req, res) => {
+  const { text, image_url } = req.body;
+
+  if (!text) return res.status(400).json({ error: 'Missing tweet text' });
 
   try {
-    const tweet = await rwClient.v2.tweet(text);
-    console.log('✅ Tweeted:', tweet.data);
-    res.status(200).json({ success: true, tweet: tweet.data });
+    let mediaId;
+
+    if (image_url) {
+      const imageRes = await fetch(image_url);
+      if (!imageRes.ok) throw new Error('Image fetch failed');
+
+      const buffer = await imageRes.buffer();
+      const contentType = imageRes.headers.get('content-type') || 'image/jpeg';
+
+      mediaId = await client.v1.uploadMedia(buffer, { mimeType: contentType });
+      console.log('📸 Uploaded media ID:', mediaId);
+    }
+
+    const tweetData = mediaId
+      ? { text, media: { media_ids: [mediaId] } }
+      : { text };
+
+    const tweet = await rwClient.v2.tweet(tweetData);
+    console.log('✅ Tweeted:', tweet);
+    res.status(200).json({ success: true, tweet });
   } catch (error) {
     console.error('❌ Failed to tweet');
     console.error('Twitter API Error:', error?.data?.errors || error.message);
@@ -39,6 +56,5 @@ app.post('/tweet', async (req, res) => {
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`➡️  Ready to POST to /tweet`);
 });
 
